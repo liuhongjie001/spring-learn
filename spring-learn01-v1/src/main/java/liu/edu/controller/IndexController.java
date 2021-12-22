@@ -3,6 +3,7 @@ package liu.edu.controller;
 import liu.edu.annocation.LAutoWried;
 import liu.edu.annocation.LController;
 import liu.edu.annocation.LRequestMapping;
+import liu.edu.annocation.LRequestParam;
 import liu.edu.service.IndexService;
 
 import javax.servlet.http.HttpServletRequest;
@@ -18,14 +19,14 @@ public class IndexController {
 
     @LRequestMapping("getIndex")
     public String index(){
-        return indexService.getIndex();
+        return indexService.getIndex("ccccc");
     }
 
 
     @LRequestMapping("aa")
-    public void indexcc(HttpServletRequest req, HttpServletResponse res){
+    public void indexcc(HttpServletRequest req, HttpServletResponse res, @LRequestParam("name") String name){
         try {
-            res.getWriter().write(indexService.getIndex());
+            res.getWriter().write(indexService.getIndex(name));
         } catch (IOException e) {
             e.printStackTrace();
         }

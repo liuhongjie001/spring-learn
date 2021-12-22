@@ -1,9 +1,6 @@
 package liu.edu.servlet;
 
-import liu.edu.annocation.LAutoWried;
-import liu.edu.annocation.LController;
-import liu.edu.annocation.LRequestMapping;
-import liu.edu.annocation.LService;
+import liu.edu.annocation.*;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -13,6 +10,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -63,10 +61,59 @@ public class LDispatcherServlet extends HttpServlet {
             resp.getWriter().write("500");
             return;
         }
-
         Method method = handlerMapping.get(requestURI);
+
+        //---------------构建动态参数-------------------
+        //为了代码简单，只对有注解的参数进行解析，没有带注解的参数判断写死
+        //获取参数注解，解析到注解的value，并构建参数name 与index 的映射关系
+        // 在request 中拿到参数名称去name 与index 的映射关系中寻找value
+        //声明一个大小为request中参数大小的数组，为反射执行方法提供参数
+        //-------------------------------
+
+        Map<String, String[]> parameterMap = req.getParameterMap();
+
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        //参数与下标的对应关系
+        Map<String,Integer> paramIndexMapper = new HashMap<>();
+
+        //声明反射执行方法的参数数组
+        Object[] params = new Object[parameterTypes.length];
+
+        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+        //因为getParameterAnnotations返回的是一个二维数组 （这里会出现一个参数上边带有多个注解,不考虑默认只有一个注解）
+        //1 这里是解析参数带有注解的
+        for (int i = 0; i < parameterAnnotations.length; i++) {
+            for (Annotation a : parameterAnnotations[i]) {
+                //这里不带注解的参数在下边写死判断（为了代码简单模拟效果）
+                if(!(a instanceof LRequestParam)){
+                    continue;
+                }
+                //需要吧Annotation 强转才会有Value 方法
+               String paramName =  ((LRequestParam) a).value();
+                paramIndexMapper.put(paramName,i);
+            }
+        }
+        //2 这里是解析没有带注解的参数。拿参数类型去对比。 直接吧没有注解的参数赋值   （为了模拟效果）
+
+        for (int i = 0; i < parameterTypes.length; i++) {
+            if(parameterTypes[i] == HttpServletRequest.class){
+                params[i] = req;
+            }else if(parameterTypes[i]== HttpServletResponse.class){
+                params[i] = resp;
+            }
+        }
+        for (Map.Entry<String, Integer> stringIntegerEntry : paramIndexMapper.entrySet()) {
+            if(parameterMap.containsKey(stringIntegerEntry.getKey())){
+                String value = Arrays.toString(parameterMap.get(stringIntegerEntry.getKey())).replaceAll("\\[|\\]","")
+                        .replaceAll("\\s","");
+
+
+                params[stringIntegerEntry.getValue()] = value;
+            }
+        }
+
         String beanName = toLowerFitstCase(method.getDeclaringClass().getName());
-        handlerMapping.get(requestURI).invoke(ioc.get(beanName),new Object[]{req,resp});
+        handlerMapping.get(requestURI).invoke(ioc.get(beanName),params);
 
     }
 
